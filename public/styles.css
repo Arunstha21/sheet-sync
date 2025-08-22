@@ -479,6 +479,18 @@ tr:hover td {
   font-weight: 500;
 }
 
+.range-info {
+  font-size: 0.8rem;
+  padding: 2px 6px;
+  background: rgba(124, 58, 237, 0.1);
+  border: 1px solid rgba(124, 58, 237, 0.2);
+  border-radius: 4px;
+  font-family: "SF Mono", Monaco, "Cascadia Code", "Roboto Mono", Consolas, "Courier New", monospace;
+  color: #c4b5fd;
+  display: inline-block;
+  width: fit-content;
+}
+
 .action-buttons {
   display: flex;
   gap: 12px;

@@ -42,12 +42,15 @@ export async function fullSync() {
   const mappingsBySheet = new Map()
 
   for (const mapping of TAB_MAPPINGS) {
+    const sourceRange = mapping.sourceRange || "A:Z"
+    const destRange = mapping.destRange || "A:Z"
+
     // Group source ranges
     if (!sheetRanges.has(mapping.sourceSheet)) {
       sheetRanges.set(mapping.sourceSheet, [])
       mappingsBySheet.set(mapping.sourceSheet, [])
     }
-    sheetRanges.get(mapping.sourceSheet).push(`${mapping.sourceTab}!A:Z`)
+    sheetRanges.get(mapping.sourceSheet).push(`${mapping.sourceTab}!${sourceRange}`)
     mappingsBySheet.get(mapping.sourceSheet).push({ ...mapping, type: "source" })
 
     // Group destination ranges
@@ -55,7 +58,7 @@ export async function fullSync() {
       sheetRanges.set(mapping.destSheet, [])
       mappingsBySheet.set(mapping.destSheet, [])
     }
-    sheetRanges.get(mapping.destSheet).push(`${mapping.destTab}!A:Z`)
+    sheetRanges.get(mapping.destSheet).push(`${mapping.destTab}!${destRange}`)
     mappingsBySheet.get(mapping.destSheet).push({ ...mapping, type: "dest" })
   }
 
@@ -83,8 +86,8 @@ export async function fullSync() {
 
   for (const mapping of TAB_MAPPINGS) {
     try {
-      const sourceRange = `${mapping.sourceTab}!A:Z`
-      const destRange = `${mapping.destTab}!A:Z`
+      const sourceRange = `${mapping.sourceTab}!${mapping.sourceRange || "A:Z"}`
+      const destRange = `${mapping.destTab}!${mapping.destRange || "A:Z"}`
 
       const sourceValues = allSheetData.get(mapping.sourceSheet)?.get(sourceRange) || []
       const destValues = allSheetData.get(mapping.destSheet)?.get(destRange) || []
@@ -97,22 +100,33 @@ export async function fullSync() {
       const cachedSourceChecksum = getChecksum(sourceKey)
       const cachedDestChecksum = getChecksum(destKey)
 
+      console.log(`[DEBUG] Processing mapping: ${sourceKey} -> ${destKey}`)
+      console.log(`[DEBUG] Source checksum: ${sourceChecksum}, Dest checksum: ${destChecksum}`)
+      console.log(`[DEBUG] Cached source: ${cachedSourceChecksum}, Cached dest: ${cachedDestChecksum}`)
+      console.log(`[DEBUG] Checksums equal: ${sourceChecksum === destChecksum}`)
+
       if (sourceChecksum !== destChecksum) {
         const sourceChanged = cachedSourceChecksum && cachedSourceChecksum !== sourceChecksum
         const destChanged = cachedDestChecksum && cachedDestChecksum !== destChecksum
+
+        console.log(`[DEBUG] Source changed: ${sourceChanged}, Dest changed: ${destChanged}`)
 
         if (sourceChanged || (!cachedSourceChecksum && !cachedDestChecksum)) {
           // Group updates by destination sheet
           if (!updatesBySheet.has(mapping.destSheet)) {
             updatesBySheet.set(mapping.destSheet, [])
           }
+          const updateRange = mapping.destRange || "A:Z"
+          const startCell = updateRange.includes(":") ? updateRange.split(":")[0] : "A1"
+
           updatesBySheet.get(mapping.destSheet).push({
-            range: `${mapping.destTab}!A1`,
+            range: `${mapping.destTab}!${startCell}`,
             values: sourceValues,
             checksumKey: destKey,
             checksum: sourceChecksum,
             direction: sourceChanged ? "source->dest" : "source->dest (initial)",
           })
+          console.log(`[DEBUG] Added update for ${destKey}`)
           logger.info(
             { sourceKey, destKey },
             sourceChanged ? "Source changed, syncing to dest" : "Initial sync from source to dest",
@@ -121,13 +135,17 @@ export async function fullSync() {
           if (!updatesBySheet.has(mapping.destSheet)) {
             updatesBySheet.set(mapping.destSheet, [])
           }
+          const updateRange = mapping.destRange || "A:Z"
+          const startCell = updateRange.includes(":") ? updateRange.split(":")[0] : "A1"
+
           updatesBySheet.get(mapping.destSheet).push({
-            range: `${mapping.destTab}!A1`,
+            range: `${mapping.destTab}!${startCell}`,
             values: sourceValues,
             checksumKey: destKey,
             checksum: sourceChecksum,
             direction: "source->dest (forced)",
           })
+          console.log(`[DEBUG] Added forced update for ${destKey}`)
           logger.warn(
             { sourceKey, destKey },
             "Destination changed independently - forcing sync from source to maintain unidirectional flow",
@@ -136,15 +154,21 @@ export async function fullSync() {
           if (!updatesBySheet.has(mapping.destSheet)) {
             updatesBySheet.set(mapping.destSheet, [])
           }
+          const updateRange = mapping.destRange || "A:Z"
+          const startCell = updateRange.includes(":") ? updateRange.split(":")[0] : "A1"
+
           updatesBySheet.get(mapping.destSheet).push({
-            range: `${mapping.destTab}!A1`,
+            range: `${mapping.destTab}!${startCell}`,
             values: sourceValues,
             checksumKey: destKey,
             checksum: sourceChecksum,
             direction: "source->dest (conflict resolved)",
           })
+          console.log(`[DEBUG] Added conflict resolution update for ${destKey}`)
           logger.warn({ sourceKey, destKey }, "Conflict detected: both sides changed. Enforcing source->dest only")
         }
+      } else {
+        console.log(`[DEBUG] No update needed - checksums match`)
       }
 
       setChecksum(sourceKey, sourceChecksum)
@@ -155,7 +179,13 @@ export async function fullSync() {
     }
   }
 
+  console.log(`[DEBUG] Updates by sheet size: ${updatesBySheet.size}`)
+  for (const [sheetId, updates] of updatesBySheet) {
+    console.log(`[DEBUG] Sheet ${sheetId} has ${updates.length} updates`)
+  }
+
   if (updatesBySheet.size === 0) {
+    console.log(`[DEBUG] No updates to apply`)
     logger.debug("fullSync: no changes detected")
     return
   }
@@ -165,6 +195,8 @@ export async function fullSync() {
     return
   }
 
+  console.log(`[DEBUG] Starting batch updates for ${updatesBySheet.size} sheets`)
+
   for (const [sheetId, updates] of updatesBySheet) {
     try {
       const batchUpdates = updates.map((update) => ({
@@ -172,7 +204,9 @@ export async function fullSync() {
         values: update.values,
       }))
 
+      console.log(`[DEBUG] Calling batchUpdateValues for sheet ${sheetId} with ${batchUpdates.length} updates`)
       await withBackoff(() => batchUpdateValues(sheets, sheetId, batchUpdates))
+      console.log(`[DEBUG] Successfully completed batchUpdateValues for sheet ${sheetId}`)
 
       // Update checksums after successful batch write
       for (const update of updates) {
@@ -189,6 +223,7 @@ export async function fullSync() {
 
       logger.info({ sheetId, updateCount: updates.length }, "Batched write to sheet")
     } catch (error) {
+      console.log(`[DEBUG] Error in batchUpdateValues for sheet ${sheetId}:`, error)
       logger.error({ error, sheetId, updateCount: updates.length }, "Failed to apply batched updates")
     }
   }
@@ -205,7 +240,7 @@ export async function applyRangeUpdate({ sheetName, range, values }) {
     return
   }
 
-  const destRange = `${mapping.destTab}!${range}`
+  const destRange = mapping.destRange ? `${mapping.destTab}!${mapping.destRange}` : `${mapping.destTab}!${range}`
   const key = `${mapping.destSheet}:${mapping.destTab}`
 
   if (!consumeTokens(1)) {

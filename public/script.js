@@ -240,14 +240,18 @@ function openModal(mapping = null) {
     document.getElementById("mapping-description").value = mapping.description || ""
     document.getElementById("source-sheet").value = mapping.sourceSheet
     document.getElementById("source-tab").value = mapping.sourceTab
+    document.getElementById("source-range").value = mapping.sourceRange || "A:Z"
     document.getElementById("dest-sheet").value = mapping.destSheet
     document.getElementById("dest-tab").value = mapping.destTab
+    document.getElementById("dest-range").value = mapping.destRange || "A:Z"
   } else {
     title.textContent = "Add New Mapping"
     submitBtn.textContent = "Create Mapping"
 
     // Clear form
     document.getElementById("mapping-form").reset()
+    document.getElementById("source-range").value = "A:Z"
+    document.getElementById("dest-range").value = "A:Z"
   }
 
   modal.style.display = "flex"
@@ -269,8 +273,10 @@ async function handleMappingSubmit(e) {
     description: document.getElementById("mapping-description").value,
     sourceSheet: document.getElementById("source-sheet").value,
     sourceTab: document.getElementById("source-tab").value,
+    sourceRange: document.getElementById("source-range").value || "A:Z",
     destSheet: document.getElementById("dest-sheet").value,
     destTab: document.getElementById("dest-tab").value,
+    destRange: document.getElementById("dest-range").value || "A:Z",
   }
 
   try {
@@ -375,6 +381,7 @@ function updateMappingsDisplay(mappings) {
                       <div class="sheet-info">
                           <div class="sheet-id">${formatSheetId(mapping.sourceSheet)}</div>
                           <div class="tab-name">${escapeHtml(mapping.sourceTab)}</div>
+                          <div class="range-info">${escapeHtml(mapping.sourceRange || "A:Z")}</div>
                       </div>
                   </td>
                   <td class="text-center">
@@ -384,6 +391,7 @@ function updateMappingsDisplay(mappings) {
                       <div class="sheet-info">
                           <div class="sheet-id">${formatSheetId(mapping.destSheet)}</div>
                           <div class="tab-name">${escapeHtml(mapping.destTab)}</div>
+                          <div class="range-info">${escapeHtml(mapping.destRange || "A:Z")}</div>
                       </div>
                   </td>
                   <td>
