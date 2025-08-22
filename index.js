@@ -98,8 +98,8 @@ app.post("/api/sync/config", (req, res) => {
   try {
     const { interval, autoStart } = req.body
 
-    if (interval && interval < 10000) {
-      return res.status(400).json({ error: "Interval must be at least 10 seconds" })
+    if (interval && interval < 1500) {
+      return res.status(400).json({ error: "Interval must be at least 1.5 seconds" })
     }
 
     const oldInterval = syncConfig.interval
