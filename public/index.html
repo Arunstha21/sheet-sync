@@ -1,0 +1,195 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Google Sheets Sync Dashboard</title>
+    <link rel="stylesheet" href="styles.css">
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/lucide/0.263.1/lucide.min.css" rel="stylesheet">
+</head>
+<body>
+    <div class="container">
+        <!-- Header -->
+        <div class="header">
+            <div>
+                <h1>Google Sheets Sync Dashboard</h1>
+                <p class="subtitle">Manage your sheet synchronization service</p>
+            </div>
+            <div class="status-indicator">
+                <i data-lucide="activity"></i>
+                <span id="status-badge" class="badge badge-secondary">Stopped</span>
+            </div>
+        </div>
+
+        <div class="separator"></div>
+
+        <!-- Sync Controls Card -->
+        <div class="card">
+            <div class="card-header">
+                <h2><i data-lucide="settings"></i> Sync Controls</h2>
+                <p class="card-description">Start, stop, and monitor your synchronization service</p>
+            </div>
+            <div class="card-content">
+                <div class="button-group">
+                    <button id="start-btn" class="btn btn-primary">
+                        <i data-lucide="play"></i> Start Sync
+                    </button>
+                    <button id="stop-btn" class="btn btn-destructive">
+                        <i data-lucide="square"></i> Stop Sync
+                    </button>
+                    <button id="sync-now-btn" class="btn btn-outline">
+                        <i data-lucide="zap"></i> Sync Now
+                    </button>
+                </div>
+
+                <div class="stats-grid">
+                    <div class="stat-item">
+                        <i data-lucide="clock"></i>
+                        <div>
+                            <p class="stat-label">Last Sync</p>
+                            <p id="last-sync" class="stat-value">Never</p>
+                        </div>
+                    </div>
+                    <div class="stat-item">
+                        <i data-lucide="database"></i>
+                        <div>
+                            <p class="stat-label">Total Syncs</p>
+                            <p id="total-syncs" class="stat-value">0</p>
+                        </div>
+                    </div>
+                    <div class="stat-item">
+                        <i data-lucide="activity"></i>
+                        <div>
+                            <p class="stat-label">Errors</p>
+                            <p id="errors" class="stat-value">0</p>
+                        </div>
+                    </div>
+                    <div class="stat-item">
+                        <i data-lucide="clock"></i>
+                        <div>
+                            <p class="stat-label">Next Sync</p>
+                            <p id="next-sync" class="stat-value">Not scheduled</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Configuration Card -->
+        <div class="card">
+            <div class="card-header">
+                <h2>Configuration</h2>
+                <p class="card-description">Adjust sync interval and other settings</p>
+            </div>
+            <div class="card-content">
+                <div class="config-grid">
+                    <div class="form-group">
+                        <label for="interval">Sync Interval (milliseconds)</label>
+                        <input type="number" id="interval" min="10000" step="1000" value="300000">
+                        <p class="help-text">Current: <span id="interval-display">5m 0s</span> (minimum 10 seconds)</p>
+                    </div>
+                    <div class="form-actions">
+                        <button id="update-config-btn" class="btn btn-primary">Update Configuration</button>
+                    </div>
+                </div>
+                <div id="config-message" class="message" style="display: none;"></div>
+            </div>
+        </div>
+
+        <!-- Mapping Management Card -->
+        <div class="card">
+            <div class="card-header">
+                <div class="card-header-flex">
+                    <div>
+                        <h2>Sheet Mappings</h2>
+                        <p class="card-description">Manage your Google Sheets synchronization mappings</p>
+                    </div>
+                    <button id="add-mapping-btn" class="btn btn-primary">
+                        <i data-lucide="plus"></i> Add Mapping
+                    </button>
+                </div>
+            </div>
+            <div class="card-content">
+                <div id="mappings-empty" class="empty-state">
+                    <i data-lucide="plus" class="empty-icon"></i>
+                    <p>No mappings configured yet</p>
+                    <p class="empty-subtitle">Add your first mapping to get started</p>
+                </div>
+                <div id="mappings-table" class="table-container" style="display: none;">
+                    <table>
+                        <thead>
+                            <tr>
+                                <th>Name</th>
+                                <th>Source</th>
+                                <th class="text-center">→</th>
+                                <th>Destination</th>
+                                <th>Actions</th>
+                            </tr>
+                        </thead>
+                        <tbody id="mappings-tbody">
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Modal Dialog -->
+    <div id="modal-overlay" class="modal-overlay" style="display: none;">
+        <div class="modal">
+            <div class="modal-header">
+                <h3 id="modal-title">Add New Mapping</h3>
+                <button id="modal-close" class="modal-close">×</button>
+            </div>
+            <div class="modal-content">
+                <form id="mapping-form">
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label for="mapping-name">Mapping Name</label>
+                            <input type="text" id="mapping-name" placeholder="e.g., Production to Main" required>
+                        </div>
+                        <div class="form-group">
+                            <label for="mapping-description">Description</label>
+                            <input type="text" id="mapping-description" placeholder="Optional description">
+                        </div>
+                    </div>
+                    
+                    <div class="form-sections">
+                        <div class="form-section">
+                            <h4>Source</h4>
+                            <div class="form-group">
+                                <label for="source-sheet">Source Sheet ID</label>
+                                <input type="text" id="source-sheet" placeholder="Google Sheets ID" required>
+                            </div>
+                            <div class="form-group">
+                                <label for="source-tab">Source Tab Name</label>
+                                <input type="text" id="source-tab" placeholder="Tab/Sheet name" required>
+                            </div>
+                        </div>
+                        
+                        <div class="form-section">
+                            <h4>Destination</h4>
+                            <div class="form-group">
+                                <label for="dest-sheet">Destination Sheet ID</label>
+                                <input type="text" id="dest-sheet" placeholder="Google Sheets ID" required>
+                            </div>
+                            <div class="form-group">
+                                <label for="dest-tab">Destination Tab Name</label>
+                                <input type="text" id="dest-tab" placeholder="Tab/Sheet name" required>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <div class="modal-actions">
+                        <button type="button" id="modal-cancel" class="btn btn-outline">Cancel</button>
+                        <button type="submit" id="modal-submit" class="btn btn-primary">Create Mapping</button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+
+    <script src="https://unpkg.com/lucide@latest/dist/umd/lucide.js"></script>
+    <script src="script.js"></script>
+</body>
+</html>

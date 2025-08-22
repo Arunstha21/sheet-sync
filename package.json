@@ -1,0 +1,27 @@
+{
+  "name": "sheet-sync",
+  "version": "1.0.0",
+  "description": "",
+  "homepage": "https://github.com/Arunstha21/sheet-sync#readme",
+  "bugs": {
+    "url": "https://github.com/Arunstha21/sheet-sync/issues"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/Arunstha21/sheet-sync.git"
+  },
+  "license": "ISC",
+  "author": "",
+  "type": "commonjs",
+  "main": "index.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "dependencies": {
+    "crypto": "^1.0.1",
+    "express": "^5.1.0",
+    "fs": "^0.0.1-security",
+    "googleapis": "^156.0.0",
+    "pino": "^9.9.0"
+  }
+}
