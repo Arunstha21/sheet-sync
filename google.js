@@ -1,11 +1,32 @@
 import { google } from "googleapis"
 import crypto from "crypto"
+import fs from "fs"
+import path from "path"
 import logger from "./logger.js"
 
 const SCOPES = ["https://www.googleapis.com/auth/spreadsheets"]
 
 export async function getSheetsClient() {
-  const auth = new google.auth.GoogleAuth({ scopes: SCOPES })
+  let auth
+
+  const keyPath = path.join(process.cwd(), "key.json")
+  if (fs.existsSync(keyPath)) {
+    try {
+      const keyFile = JSON.parse(fs.readFileSync(keyPath, "utf8"))
+      auth = new google.auth.GoogleAuth({
+        credentials: keyFile,
+        scopes: SCOPES,
+      })
+      logger.info("Using service account credentials from key.json")
+    } catch (error) {
+      logger.error({ error: error.message }, "Failed to read key.json, falling back to default auth")
+      auth = new google.auth.GoogleAuth({ scopes: SCOPES })
+    }
+  } else {
+    logger.info("key.json not found, using default Google Auth")
+    auth = new google.auth.GoogleAuth({ scopes: SCOPES })
+  }
+
   const client = await auth.getClient()
   return google.sheets({ version: "v4", auth: client })
 }
